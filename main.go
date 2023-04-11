@@ -2,37 +2,42 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
-	"net"
 	"time"
 
+	"github.com/miguelpgnferreira/glockchain/crypto"
 	"github.com/miguelpgnferreira/glockchain/node"
 	"github.com/miguelpgnferreira/glockchain/proto"
+	"github.com/miguelpgnferreira/glockchain/util"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	node := node.NewNode()
+	makeNode(":3000", []string{}, true)
+	time.Sleep(time.Second)
+	makeNode(":4000", []string{":3000"}, false)
 
-	opts := []grpc.ServerOption{}
-	grpcServer := grpc.NewServer(opts...)
-	ln, err := net.Listen("tcp", "3000")
-	if err != nil {
-		log.Fatal(err)
+	time.Sleep(4 * time.Second)
+	makeNode(":5000", []string{":4000"}, false)
+
+	for {
+		time.Sleep(100 * time.Millisecond)
+		makeTransaction()
 	}
-	proto.RegisterNodeServer(grpcServer, node)
-	fmt.Println("Node running on port: ", ":3000")
+}
 
-	go func() {
-		for {
-			time.Sleep(2 * time.Second)
-			makeTransaction()
-		}
+func makeNode(listenAddr string, bootstrapNodes []string, isValidator bool) *node.Node {
+	cfg := node.ServerConfig{
+		Version:    "glockchain-0.1",
+		ListenAddr: listenAddr,
+	}
+	if isValidator {
+		cfg.PrivateKey = crypto.GeneratePrivateKey()
+	}
+	n := node.NewNode(cfg)
+	go n.Start(listenAddr, bootstrapNodes)
 
-	}()
-
-	grpcServer.Serve(ln)
+	return n
 }
 
 func makeTransaction() {
@@ -42,8 +47,25 @@ func makeTransaction() {
 	}
 
 	c := proto.NewNodeClient(client)
+	privKey := crypto.GeneratePrivateKey()
+	tx := &proto.Transaction{
+		Version: 1,
+		Inputs: []*proto.TxInput{
+			{
+				PrevTxHash:   util.RandomHash(),
+				PrevOutIndex: 0,
+				PublicKey:    privKey.Public().Bytes(),
+			},
+		},
+		Outputs: []*proto.TxOutput{
+			{
+				Amount:  99,
+				Address: privKey.Public().Address().Bytes(),
+			},
+		},
+	}
 
-	_, err = c.HandleTransaction(context.TODO(), &proto.Transaction{})
+	_, err = c.HandleTransaction(context.TODO(), tx)
 	if err != nil {
 		log.Fatal(err)
 	}

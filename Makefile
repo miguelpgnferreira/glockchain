@@ -1,8 +1,8 @@
 build:
-	@go build -o build/glockchain
+	@go build -o bin/glockchain
 
 run: build
-	@./bin/docker
+	@./bin/glockchain
 
 test:
 	@go test -v ./...
