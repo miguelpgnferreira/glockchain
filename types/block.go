@@ -3,6 +3,7 @@ package types
 import (
 	"bytes"
 	"crypto/sha256"
+	"fmt"
 
 	"github.com/cbergoon/merkletree"
 	"github.com/miguelpgnferreira/glockchain/crypto"
@@ -33,28 +34,30 @@ func (h TxHash) Equals(other merkletree.Content) (bool, error) {
 func VerifyBlock(b *proto.Block) bool {
 	if len(b.Transactions) > 0 {
 		if !VerifyRootHash(b) {
+			fmt.Println("INVALID root hash")
 			return false
 		}
 	}
 
 	if len(b.PublicKey) != crypto.PubKeyLen {
+		fmt.Println("INVALID public key length")
 		return false
 	}
 	if len(b.Signature) != crypto.SignatureLen {
+		fmt.Println("INVALID signature length")
 		return false
 	}
 	sig := crypto.SignatureFromBytes(b.Signature)
 	pubKey := crypto.PublicKeyFromBytes(b.PublicKey)
 	hash := HashBlock(b)
-	return sig.Verify(pubKey, hash)
+	if !sig.Verify(pubKey, hash) {
+		fmt.Println("INVALID signature")
+		return false
+	}
+	return true
 }
 
 func SignBlock(pk *crypto.PrivateKey, b *proto.Block) *crypto.Signature {
-	hash := HashBlock(b)
-	sig := pk.Sign(hash)
-	b.PublicKey = pk.Public().Bytes()
-	b.Signature = sig.Bytes()
-
 	if len(b.Transactions) > 0 {
 		tree, err := GetMerkleTree(b)
 		if err != nil {
@@ -62,6 +65,10 @@ func SignBlock(pk *crypto.PrivateKey, b *proto.Block) *crypto.Signature {
 		}
 		b.Header.RootHash = tree.MerkleRoot()
 	}
+	hash := HashBlock(b)
+	sig := pk.Sign(hash)
+	b.PublicKey = pk.Public().Bytes()
+	b.Signature = sig.Bytes()
 
 	return sig
 }

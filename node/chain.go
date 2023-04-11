@@ -100,6 +100,20 @@ func (c *Chain) addBlock(b *proto.Block) error {
 				return err
 			}
 		}
+
+		for _, input := range tx.Inputs {
+			key := fmt.Sprintf("%s_%d", hex.EncodeToString(input.PrevTxHash), input.PrevOutIndex)
+			fmt.Println("key -> ", key)
+			utxo, err := c.utxoStore.Get(key)
+			if err != nil {
+				return err
+			}
+			fmt.Println("utxo -> ", utxo)
+			utxo.Spent = true
+			if err := c.utxoStore.Put(utxo); err != nil {
+				return err
+			}
+		}
 	}
 
 	return c.blockStore.Put(b)
