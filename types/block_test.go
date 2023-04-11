@@ -4,9 +4,26 @@ import (
 	"testing"
 
 	"github.com/miguelpgnferreira/glockchain/crypto"
+	"github.com/miguelpgnferreira/glockchain/proto"
 	"github.com/miguelpgnferreira/glockchain/util"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestCalculateRootHash(t *testing.T) {
+	var (
+		block   = util.RandomBlock()
+		privKey = crypto.GeneratePrivateKey()
+
+		tx = &proto.Transaction{
+			Version: 1,
+		}
+	)
+	block.Transactions = append(block.Transactions, tx)
+	SignBlock(privKey, block)
+
+	assert.True(t, VerifyRootHash(block))
+	assert.Equal(t, 32, len(block.Header.RootHash))
+}
 
 func TestVerifyBlock(t *testing.T) {
 	var (
